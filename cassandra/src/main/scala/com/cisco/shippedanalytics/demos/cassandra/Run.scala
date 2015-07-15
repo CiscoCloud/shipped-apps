@@ -18,10 +18,10 @@ interval: Int = 10,
 debug: Boolean = false)
 
 val parser = new scopt.OptionParser[Config]("Shipped Analytics - Cassandra Demo") {
-	opt[String]('n', "node") required() action { (x, c) => c.copy(node = x)} text "Cassandra node IP or FQDN, 127.0.0.1 by default"
+	opt[String]('n', "node") action { (x, c) => c.copy(node = x)} text "Cassandra node IP or FQDN, 127.0.0.1 by default"
 	opt[String]('m',"mode") required() action { (x, c) => c.copy(mode = x)} text "Application mode, 'r' for Reader and 'w' for Writer"
-	opt[Int]('p',"port") required() action { (x, c) => c.copy(port = x)} text "Cassandra node native transport port, usually 9042"
-	opt[Int]('i',"interval") required() action { (x, c) => c.copy(port = x)} text "interval in seconds for fetching load average data (for writer mode)"
+	opt[Int]('p',"port") action { (x, c) => c.copy(port = x)} text "Cassandra node native transport port, 9042 by default"
+	opt[Int]('i',"interval") action { (x, c) => c.copy(port = x)} text "interval in seconds for fetching load average data (for writer mode), 10 by default"
 	opt[Boolean]('d',"debug") action { (x, c) => c.copy(debug = x)} text "Debug mode, 'false' by default"
 }
 

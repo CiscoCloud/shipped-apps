@@ -12,7 +12,7 @@ mvn clean package
 
 To use the app in writer mode:
 ```bash
-cqlsh -f CQL/SampleApp.cql cassandra_node_ip
+cqlsh -f CQL/createTable.cql cassandra_node_ip
 java -jar target/cassandra-demo-with-dependencies.jar \
 -n cassandra_node_ip \
 -m w \
