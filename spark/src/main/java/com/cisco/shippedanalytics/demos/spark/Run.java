@@ -23,9 +23,9 @@ import scala.Tuple2;
  * @author Borys Omelayenko
  *
  */
-public class App {
+public class Run {
 
-	private static final Logger logger = LoggerFactory.getLogger(App.class);
+	private static final Logger logger = LoggerFactory.getLogger(Run.class);
 
 	private static final String APP_NAME = "Shipped Analytics - Spark Demo";
 
@@ -35,7 +35,7 @@ public class App {
 
 		try (JavaSparkContext context = new JavaSparkContext(sparkConf)) {
 
-			List<String> text = IOUtils.readLines(new App().getClass().getResourceAsStream("/shakespeare.txt"));
+			List<String> text = IOUtils.readLines(new Run().getClass().getResourceAsStream("/shakespeare.txt"));
 			JavaRDD<String> file = context.parallelize(text);
 
 			JavaRDD<String> words = file.flatMap(new FlatMapFunction<String, String>() {
