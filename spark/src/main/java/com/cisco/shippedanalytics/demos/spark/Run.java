@@ -25,6 +25,8 @@ import scala.Tuple2;
  */
 public class Run {
 
+	private static final String HDFS_OUTPUT = "/demos/spark/shakespeare";
+
 	private static final Logger logger = LoggerFactory.getLogger(Run.class);
 
 	private static final String APP_NAME = "Shipped Analytics - Spark Demo";
@@ -70,7 +72,8 @@ public class Run {
 				}
 			});
 
-			logger.info(APP_NAME + " completed successfully with the following word occurrences discovered in the first Act of All's Well That Ends Well\n" + wordCounts.collect());
+			wordCounts.saveAsTextFile(HDFS_OUTPUT);
+			logger.info(APP_NAME + " completed successfully with the first Act of All's Well That Ends Well saved to HDFS to " + HDFS_OUTPUT);
 		}
 	}
 
