@@ -4,6 +4,11 @@ import com.datastax.driver.core.Session
 import com.datastax.driver.core.Cluster
 import scala.io.Source
 import scala.collection.JavaConversions._
+import java.util.logging.Logger
+import java.util.Formatter.DateTime
+import java.util.Formatter.DateTime
+import java.util.Date
+import java.text.DateFormat
 
 /**
  * Basic demo showing that Cassandra is installed and running.
@@ -11,119 +16,95 @@ import scala.collection.JavaConversions._
  */
 object Run extends App {
 
-case class Config(node: String = "127.0.0.1",
-port: Int = 9042,
-mode: String = "r",
-interval: Int = 10,
-debug: Boolean = false)
+case class Config (
+		node: String = "127.0.0.1",
+		port: Int = 9042,
+		interval: Int = 1)
 
-val parser = new scopt.OptionParser[Config]("Shipped Analytics - Cassandra Demo") {
-	opt[String]('n', "node") action { (x, c) => c.copy(node = x)} text "Cassandra node IP or FQDN, 127.0.0.1 by default"
-	opt[String]('m',"mode") required() action { (x, c) => c.copy(mode = x)} text "Application mode, 'r' for Reader and 'w' for Writer"
-	opt[Int]('p',"port") action { (x, c) => c.copy(port = x)} text "Cassandra node native transport port, 9042 by default"
-	opt[Int]('i',"interval") action { (x, c) => c.copy(port = x)} text "interval in seconds for fetching load average data (for writer mode), 10 by default"
-	opt[Boolean]('d',"debug") action { (x, c) => c.copy(debug = x)} text "Debug mode, 'false' by default"
-}
+		override def main(args: Array[String]) {
 
-def quitWithError(): Unit ={
-		parser.showUsage
-		System.exit(1)
-}
+		val logger = Logger.getLogger(Run.getClass.getName());
 
-parser.parse(args, Config()) map { config =>
-if (config.debug)
-	printf("Cassandra Sample Scala App\nNode: %s, Port: %d, Mode: %s, debug enabled.\n",
-			config.node,
-			config.port,
-			config.mode match {
-			case "r" => "reader"
-			case "w" => "writer"
-	})
+		val parser = new scopt.OptionParser[Config]("Shipped Analytics - Cassandra Demo") {
+			opt[String]('n', "node") action { (x, c) => c.copy(node = x)} text "Cassandra node IP or FQDN, 127.0.0.1 by default"
+			opt[Int]('p',"port") action { (x, c) => c.copy(port = x)} text "Cassandra node native transport port, 9042 by default"
+			opt[Int]('i',"interval") action { (x, c) => c.copy(port = x)} text "interval in seconds for fetching load average data (for writer mode), 1 by default"
+		};
 
-	if (!(0 < config.port && config.port < 65535)) {
-		printf("Incorrect port %d specified.\n", config.port)
-		quitWithError()
-	}
+		parser.parse(args, Config()) match {
+		case Some(config) => {
 
-config.mode match {
-case "r" => val cas = read(config.node, config.port, config.debug)
-case "w" => val cas = write(config.node, config.port, config.interval, config.debug)
-case default => {
-	printf("Incorrect mode \"%s\"\n", config.mode)
-	quitWithError()
-}
-}
-}
+			val host = java.net.InetAddress.getLocalHost.getHostName;
+			val signature = DateFormat.getDateTimeInstance().format(new Date());
+			val iterations = 10;
 
-def read(node: String, port: Int, debug: Boolean) {
+			{
+				// connecting and setup
+				logger.info("Starting with Cassandra node: " + config.node + ":" + config.port);
+        val cluster = Cluster.builder().withPort(config.port).addContactPoint(config.node).build();
 
-	var query = "SELECT dateOf(ts), host, m1, m5, m10 FROM load_averages;";
-	printf("Reader module started with node '%s' and port %d\n", node, port)
+				for (host <- cluster.getMetadata.getAllHosts) {
+					logger.info("Datacenter: " + host.getDatacenter + ", Host: " + host.getAddress + ", Rack: " + host.getRack);
+				}
 
-	val cluster = Cluster.builder().withPort(port).addContactPoint(node).build()
-	val session = cluster.connect("demo")
+				cluster.connect().execute("CREATE KEYSPACE IF NOT EXISTS demo WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 3 }");
+				val session = cluster.connect("demo");
+				session.execute("CREATE TABLE IF NOT EXISTS demo.load_averages(nr int, lastMinuteAverage float, host text, signature text, PRIMARY KEY (nr, host, signature))");
 
-	if (debug) {
-		val metadata = cluster.getMetadata;
-		printf("Connected to cluster: %s\n", metadata.getClusterName)
+				// writing data
+				logger.info("Cassandra table created and start writing to " + cluster.getMetadata.getClusterName);
+				val avgfile = "/proc/loadavg";
 
-		for (host <- metadata.getAllHosts) {
-			printf("Datacenter: %s; Host: %s; Rack: %s\n", host.getDatacenter, host.getAddress, host.getRack)
+				for (i <- 1 to iterations) {
+					val avg_data = Source.fromFile(avgfile).getLines.next.split(' ')(0);
+					session.execute("INSERT INTO demo.load_averages (nr, lastMinuteAverage, host, signature) VALUES (" + i + ", " + avg_data + ", '" + host + "', '" + signature + "')");
+					Thread.sleep(config.interval * 1000)
+				}
+			}
+
+			{
+				// reading data
+				logger.info("Finished writing, start reading");
+				val cluster = Cluster.builder().withPort(config.port).addContactPoint(config.node).build();
+				val session = cluster.connect("demo");
+				val rows = session.execute("SELECT lastMinuteAverage, host, signature FROM demo.load_averages WHERE host = '" + host + "' AND signature = '" + signature + "' ALLOW FILTERING");
+
+				var errorMessage = "";
+
+        var count = 0;
+        var data = "\nRetrieved results: lastMinuteAverage | host | signature\n";
+
+				for (row <- rows) {
+					val readLoad = row.getFloat("lastMinuteAverage");
+					val readHost = row.getString("host");
+					val readSignature = row.getString("signature");
+					data = data + s"$readLoad | $readHost | $readSignature\n";
+					if (!readHost.equals(host)) {
+						errorMessage = errorMessage + s"Read host '$readHost' while '$host' was expected\n";
+					}
+					if (!readSignature.equals(signature)) {
+						errorMessage = errorMessage + s"Read signature '$readSignature' while '$signature' was expected\n";
+					}
+          count = count + 1;
+				}
+
+        logger.info(data);
+        if (count != iterations) {
+          errorMessage = "Read " + count + " records but " + iterations + " were expected\n";
+        }
+
+				if (errorMessage.isEmpty()) {
+					logger.info("SUCCESS");
+					System.exit(0);
+				} else {
+					logger.info("FAILED");
+					logger.severe(errorMessage);
+					System.exit(1);
+				}
+			}
 		}
-		println("\n")
-	}
-
-	val rows = session.execute(query);
-
-	println("Load average format:\n| hostname |\tdate |\t1 minute |\t5 minutes |\t10 minutes |\nData:");
-
-	for (row <- rows) {
-		printf("| %s |\t%s |\t%.2f |\t%.2f |\t%.2f |\n",
-				row.getString("host"),
-				row.getDate("dateOf(ts)").toString,
-				row.getFloat("m1"),
-				row.getFloat("m5"),
-				row.getFloat("m10")
-				)
-	}
-
-}
-
-def formQuery(m1: Float, m5: Float, m10: Float, hostname : String): String = {
-		"INSERT INTO load_averages (m1, m5, m10, host, ts) " +
-				s"VALUES ($m1, $m5, $m10, '$hostname', now() )"
-}
-
-def write(node: String, port: Int, interval: Int,  debug: Boolean) {
-
-	val avgfile = "/proc/loadavg";
-	val hostname = java.net.InetAddress.getLocalHost.getHostName;
-
-	printf("Writer module started with node '%s' and port %d\n", node, port)
-
-	val cluster = Cluster.builder().withPort(port).addContactPoint(node).build()
-	val session = cluster.connect("demo")
-
-	if (debug) {
-		val metadata = cluster.getMetadata;
-		printf("Connected to cluster: %s\n", metadata.getClusterName)
-
-		for (host <- metadata.getAllHosts) {
-			printf("Datacenter: %s; Host: %s; Rack: %s\n",
-					host.getDatacenter, host.getAddress, host.getRack)
+		case None =>
+      logger.info(parser.usage)
 		}
-		println("\n")
 	}
-
-	while (true) {
-		val avg_data = Source.fromFile(avgfile).getLines.next.split(' ');
-		if (debug) {
-			println(formQuery(avg_data(0).toFloat, avg_data(1).toFloat, avg_data(2).toFloat, hostname))
-		}
-		session.execute(formQuery(avg_data(0).toFloat, avg_data(1).toFloat, avg_data(2).toFloat, hostname))
-		Thread.sleep(interval * 1000)
-	}
-
-}
-
 }
