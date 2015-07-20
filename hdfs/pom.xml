@@ -8,17 +8,18 @@
 		<version>1.0</version>
 	</parent>
 
+	<groupId>com.cisco.shippedanalytics.demos</groupId>
 	<artifactId>hdfs</artifactId>
 	<description>HDFS Demo</description>
 
 	<dependencies>
 		<dependency>
-			<groupId>commons-io</groupId>
-			<artifactId>commons-io</artifactId>
+			<groupId>com.cisco.shippedanalytics.demos</groupId>
+			<artifactId>common</artifactId>
 		</dependency>
 		<dependency>
-			<groupId>org.apache.hadoop</groupId>
-			<artifactId>hadoop-client</artifactId>
+			<groupId>commons-io</groupId>
+			<artifactId>commons-io</artifactId>
 		</dependency>
 	</dependencies>
 	<build>

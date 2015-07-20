@@ -1,17 +1,16 @@
 package com.cisco.shippedanalytics.demos.hdfs;
 
 import java.io.IOException;
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
 
 import org.apache.commons.io.IOUtils;
-import org.apache.commons.lang.StringUtils;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+
+import com.cisco.shippedanalytics.demos.CommonDemo;
 
 /**
  * Basic demo for HDFS read-write.
@@ -21,34 +20,31 @@ import org.apache.hadoop.fs.Path;
  */
 public class Run {
 
-	private static final String HDFS_OUTPUT = "/demos/hdfs/shakespeare.txt";
+	private static final String HDFS = "/hdfs";
+	private static final String SHAKESPEARE_TXT = "/shakespeare.txt";
 
 	public static void main(String[] args) throws IOException, URISyntaxException {
 
-		List<String> text = IOUtils.readLines(new Run().getClass().getResourceAsStream("/shakespeare.txt"));
-		Configuration hadoopConfig = new Configuration();
-		FileSystem fs = FileSystem.get(new URI(HDFS_OUTPUT), hadoopConfig);
-		fs.mkdirs(new Path(StringUtils.substringBeforeLast(HDFS_OUTPUT, "/")));
+		List<String> text = IOUtils.readLines(new Run().getClass().getResourceAsStream(SHAKESPEARE_TXT));
+		FileSystem fs = CommonDemo.fs(HDFS);
 
-		FSDataOutputStream os = fs.create(new Path(HDFS_OUTPUT));
+		FSDataOutputStream os = fs.create(new Path(HDFS + SHAKESPEARE_TXT));
 		IOUtils.writeLines(text, "\n", os);
 		os.close();
 
-		FSDataInputStream is = fs.open(new Path(HDFS_OUTPUT));
+		FSDataInputStream is = fs.open(new Path(HDFS + SHAKESPEARE_TXT));
 		List<String> read = IOUtils.readLines(is);
 		is.close();
 
 		if (text.size() != read.size()) {
-			System.err.println("Error: expected " + text.size() + " lines but read " + read.size());
-			System.exit(1);
+			CommonDemo.fail(HDFS, "Error: expected " + text.size() + " lines but read " + read.size());
 		}
 		for (int i = 0; i < read.size(); i ++) {
 			if (!read.get(i).equals(text.get(i))) {
-				System.err.println("Error: expected '" + text.get(i) + "' but read '" + read.get(i) + "' on line " + i);
-				System.exit(1);
+				CommonDemo.fail(HDFS, "Error: expected '" + text.get(i) + "' but read '" + read.get(i) + "' on line " + i);
 			}
 		}
-		System.out.println("SUCCESS, created file " + HDFS_OUTPUT);
+		CommonDemo.succeed("SUCCESS, created file " + (CommonDemo.root() + HDFS + SHAKESPEARE_TXT));
 	}
 
 }

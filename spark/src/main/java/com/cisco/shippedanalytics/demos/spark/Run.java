@@ -3,11 +3,12 @@ package com.cisco.shippedanalytics.demos.spark;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.List;
 
 import org.apache.commons.io.IOUtils;
-import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.spark.SparkConf;
@@ -15,12 +16,13 @@ import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.FlatMapFunction;
+import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.Function2;
 import org.apache.spark.api.java.function.PairFunction;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import scala.Tuple2;
+
+import com.cisco.shippedanalytics.demos.CommonDemo;
 
 /**
  * Basic demo showing that Spark is installed and running.
@@ -30,19 +32,21 @@ import scala.Tuple2;
  */
 public class Run {
 
-	private static final String HDFS_OUTPUT = "/demos/spark/shakespeare";
+	private static final String SPARK = "/spark";
 
-	private static final Logger logger = LoggerFactory.getLogger(Run.class);
+	private static final String SHAKESPEARE_TXT = "/shakespeare.txt";
 
 	private static final String APP_NAME = "Shipped Analytics - Spark Demo";
 
-	public static void main(String[] args) throws IOException {
+	public static void main(String[] args) throws IOException, IllegalArgumentException, URISyntaxException {
+
+		FileSystem fs = CommonDemo.fs(SPARK);
 
 		SparkConf sparkConf = new SparkConf().setAppName(APP_NAME);
 
 		try (JavaSparkContext context = new JavaSparkContext(sparkConf)) {
 
-			List<String> text = IOUtils.readLines(new Run().getClass().getResourceAsStream("/shakespeare.txt"));
+			List<String> text = IOUtils.readLines(new Run().getClass().getResourceAsStream(SHAKESPEARE_TXT));
 			JavaRDD<String> file = context.parallelize(text);
 
 			JavaRDD<String> words = file.flatMap(new FlatMapFunction<String, String>() {
@@ -77,24 +81,33 @@ public class Run {
 				}
 			});
 
-			wordCounts.saveAsTextFile(HDFS_OUTPUT);
-			logger.info(APP_NAME + " completed successfully with the first Act of All's Well That Ends Well saved to HDFS to " + HDFS_OUTPUT);
+			JavaRDD<String> wordLines = wordCounts.map(new Function<Tuple2<String,Integer>, String>() {
 
+				// generated UID
+				private static final long serialVersionUID = -3808131749775009311L;
 
-			FileSystem fs = FileSystem.get(new Configuration());
-			//			fs.mkdirs(new Path(StringUtils.substringBeforeLast(HDFS_OUTPUT, "/")));
+				@Override
+				public String call(Tuple2<String, Integer> tuple) throws Exception {
+					return tuple._1() + "-" + tuple._2();
+				}
+			});
 
-			try (BufferedReader br = new BufferedReader(new InputStreamReader(fs.open(new Path(HDFS_OUTPUT))))) {
-				for (String line : IOUtils.readLines(br)) {
-					if (line.contains("COUNTESS")) {
-						if (!line.contains("43")) {
-							logger.error("Expected 43 occurances of COUNTESS, but did not found in the following line: " + line);
-							System.exit(1);
-						}
-					}
+			FSDataOutputStream os = fs.create(new Path(CommonDemo.root() + SPARK + SHAKESPEARE_TXT));
+			IOUtils.writeLines(wordLines.collect(), "\n", os);
+			os.close();
+
+		}
+
+		BufferedReader br = new BufferedReader(new InputStreamReader(fs.open(new Path(CommonDemo.root() + SPARK + SHAKESPEARE_TXT))));
+		for (String line : IOUtils.readLines(br)) {
+			if (line.contains("COUNTESS")) {
+				if (!line.contains("43")) {
+					CommonDemo.fail(CommonDemo.root() + SPARK, "Expected 43 occurances of COUNTESS, but did not found in the following line: " + line);
 				}
 			}
 		}
+
+		CommonDemo.succeed(CommonDemo.root() + SPARK);
 	}
 
 }

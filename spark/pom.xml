@@ -8,10 +8,15 @@
 		<version>1.0</version>
 	</parent>
 
+	<groupId>com.cisco.shippedanalytics.demos</groupId>
 	<artifactId>spark</artifactId>
 	<description>Spark Demo</description>
 
 	<dependencies>
+		<dependency>
+			<groupId>com.cisco.shippedanalytics.demos</groupId>
+			<artifactId>common</artifactId>
+		</dependency>
 		<dependency>
 			<groupId>org.apache.spark</groupId>
 			<artifactId>spark-core_2.10</artifactId>
