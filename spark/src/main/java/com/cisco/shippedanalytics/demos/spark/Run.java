@@ -78,7 +78,7 @@ public class Run {
 			});
 
 			wordCounts.saveAsTextFile(HDFS_OUTPUT);
-			logger.info(APP_NAME + " completed successfully with the first Act of All's Well That Ends Well saved to HDFS to " + HDFS_OUTPUT + wordCounts.count());
+			logger.info(APP_NAME + " completed successfully with the first Act of All's Well That Ends Well saved to HDFS to " + HDFS_OUTPUT);
 
 
 			FileSystem fs = FileSystem.get(new Configuration());
