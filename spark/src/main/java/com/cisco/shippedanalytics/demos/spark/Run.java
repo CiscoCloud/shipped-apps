@@ -7,7 +7,6 @@ import java.util.Arrays;
 import java.util.List;
 
 import org.apache.commons.io.IOUtils;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -78,12 +77,12 @@ public class Run {
 				}
 			});
 
-			FileSystem fs = FileSystem.get(new Configuration());
-			fs.mkdirs(new Path(StringUtils.substringBeforeLast(HDFS_OUTPUT, "/")));
-
 			wordCounts.saveAsTextFile(HDFS_OUTPUT);
-			logger.info(APP_NAME + " completed successfully with the first Act of All's Well That Ends Well saved to HDFS to " + HDFS_OUTPUT);
+			logger.info(APP_NAME + " completed successfully with the first Act of All's Well That Ends Well saved to HDFS to " + HDFS_OUTPUT + wordCounts.count());
 
+
+			FileSystem fs = FileSystem.get(new Configuration());
+			//			fs.mkdirs(new Path(StringUtils.substringBeforeLast(HDFS_OUTPUT, "/")));
 
 			try (BufferedReader br = new BufferedReader(new InputStreamReader(fs.open(new Path(HDFS_OUTPUT))))) {
 				for (String line : IOUtils.readLines(br)) {
