@@ -20,31 +20,31 @@ import com.cisco.shippedanalytics.demos.CommonDemo;
  */
 public class Run {
 
-	private static final String HDFS = "/hdfs";
+	private static final String DEMO = "/hdfs";
 	private static final String SHAKESPEARE_TXT = "/shakespeare.txt";
 
 	public static void main(String[] args) throws IOException, URISyntaxException {
 
 		List<String> text = IOUtils.readLines(new Run().getClass().getResourceAsStream(SHAKESPEARE_TXT));
-		FileSystem fs = CommonDemo.fs(HDFS);
+		FileSystem fs = CommonDemo.fs(DEMO);
 
-		FSDataOutputStream os = fs.create(new Path(HDFS + SHAKESPEARE_TXT));
+		FSDataOutputStream os = fs.create(new Path(CommonDemo.root() + DEMO + SHAKESPEARE_TXT));
 		IOUtils.writeLines(text, "\n", os);
 		os.close();
 
-		FSDataInputStream is = fs.open(new Path(HDFS + SHAKESPEARE_TXT));
+		FSDataInputStream is = fs.open(new Path(CommonDemo.root() + DEMO + SHAKESPEARE_TXT));
 		List<String> read = IOUtils.readLines(is);
 		is.close();
 
 		if (text.size() != read.size()) {
-			CommonDemo.fail(HDFS, "Error: expected " + text.size() + " lines but read " + read.size());
+			CommonDemo.fail(DEMO, "Error: expected " + text.size() + " lines but read " + read.size());
 		}
 		for (int i = 0; i < read.size(); i ++) {
 			if (!read.get(i).equals(text.get(i))) {
-				CommonDemo.fail(HDFS, "Error: expected '" + text.get(i) + "' but read '" + read.get(i) + "' on line " + i);
+				CommonDemo.fail(DEMO, "Error: expected '" + text.get(i) + "' but read '" + read.get(i) + "' on line " + i);
 			}
 		}
-		CommonDemo.succeed("SUCCESS, created file " + (CommonDemo.root() + HDFS + SHAKESPEARE_TXT));
+		CommonDemo.succeed(DEMO);
 	}
 
 }

@@ -32,7 +32,7 @@ import com.cisco.shippedanalytics.demos.CommonDemo;
  */
 public class Run {
 
-	private static final String SPARK = "/spark";
+	private static final String DEMO = "/spark";
 
 	private static final String SHAKESPEARE_TXT = "/shakespeare.txt";
 
@@ -40,7 +40,8 @@ public class Run {
 
 	public static void main(String[] args) throws IOException, IllegalArgumentException, URISyntaxException {
 
-		FileSystem fs = CommonDemo.fs(SPARK);
+		FileSystem fs = CommonDemo.fs(DEMO);
+		fs.delete(new Path(CommonDemo.root() + DEMO), true);
 
 		SparkConf sparkConf = new SparkConf().setAppName(APP_NAME);
 
@@ -92,22 +93,22 @@ public class Run {
 				}
 			});
 
-			FSDataOutputStream os = fs.create(new Path(CommonDemo.root() + SPARK + SHAKESPEARE_TXT));
+			FSDataOutputStream os = fs.create(new Path(CommonDemo.root() + DEMO + SHAKESPEARE_TXT));
 			IOUtils.writeLines(wordLines.collect(), "\n", os);
 			os.close();
 
 		}
 
-		BufferedReader br = new BufferedReader(new InputStreamReader(fs.open(new Path(CommonDemo.root() + SPARK + SHAKESPEARE_TXT))));
+		BufferedReader br = new BufferedReader(new InputStreamReader(fs.open(new Path(CommonDemo.root() + DEMO + SHAKESPEARE_TXT))));
 		for (String line : IOUtils.readLines(br)) {
 			if (line.contains("COUNTESS")) {
 				if (!line.contains("43")) {
-					CommonDemo.fail(CommonDemo.root() + SPARK, "Expected 43 occurances of COUNTESS, but did not found in the following line: " + line);
+					CommonDemo.fail(DEMO, "Expected 43 occurances of COUNTESS, but did not found in the following line: " + line);
 				}
 			}
 		}
 
-		CommonDemo.succeed(CommonDemo.root() + SPARK);
+		CommonDemo.succeed(DEMO);
 	}
 
 }

@@ -2,7 +2,6 @@ package com.cisco.shippedanalytics.demos.sparkcassandra;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
-import java.util.Date;
 import java.util.List;
 
 import org.apache.commons.io.IOUtils;
@@ -14,10 +13,10 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.Function;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.cisco.shippedanalytics.demos.CommonDemo;
+import com.datastax.driver.core.Session;
+import com.datastax.spark.connector.cql.CassandraConnector;
 import com.datastax.spark.connector.japi.CassandraJavaUtil;
 
 /**
@@ -28,11 +27,11 @@ import com.datastax.spark.connector.japi.CassandraJavaUtil;
  */
 public class Run {
 
-	private static final String TABLE = "log-records";
+	private static final String TABLE = "logrecords";
 
 	private static final String KEYSPACE = "demos";
 
-	private static final String CASSANDRA = "/spark-cassandra";
+	private static final String DEMO = "/spark-cassandra";
 
 	private static final String ACCESS_LOG = "/access.log";
 
@@ -40,38 +39,66 @@ public class Run {
 
 	public static void main(String[] args) throws IOException, URISyntaxException {
 
+		if (args.length != 1) {
+			CommonDemo.fail(DEMO, "Expected a parameter - IP of a Cassandra node");
+		}
+		String cassandraHost = args[0];
+
 		// copy log file to HDFS
 		List<String> text = IOUtils.readLines(new Run().getClass().getResourceAsStream(ACCESS_LOG));
-		FileSystem fs = CommonDemo.fs(CASSANDRA);
+		FileSystem fs = CommonDemo.fs(DEMO);
 
-		FSDataOutputStream os = fs.create(new Path(CommonDemo.root() + CASSANDRA + ACCESS_LOG));
+		FSDataOutputStream os = fs.create(new Path(CommonDemo.root() + DEMO + ACCESS_LOG));
 		IOUtils.writeLines(text, "\n", os);
 		os.close();
 
 		// read log file with Spark
-		SparkConf sparkConf = new SparkConf().setAppName(APP_NAME);
+		SparkConf sparkConf = new SparkConf()
+		.setAppName(APP_NAME)
+		.set("spark.cassandra.keyspace", KEYSPACE)
+		.set("spark.cassandra.connection.host", cassandraHost);
+
 		JavaSparkContext sparkContext = new JavaSparkContext(sparkConf);
-		JavaRDD<LogRecord> records = sparkContext.textFile(CommonDemo.root() + CASSANDRA + ACCESS_LOG).map(new Function<String, LogRecord>() {
+		JavaRDD<LogRecord> records = sparkContext.textFile(CommonDemo.root() + DEMO + ACCESS_LOG).map(new Function<String, LogRecord>() {
 
 			private static final long serialVersionUID = -4197368391364369559L;
 
 			@Override
 			public LogRecord call(String line) throws Exception {
 				String[] fields = StringUtils.split(line, ' ');
-				return new LogRecord(fields[0], fields[1], new Date(), fields[3]);
+				return new LogRecord(fields[0], fields[1], Integer.parseInt(fields[2]), fields[3]);
 			}
 		});
 
 		// save log records to Cassandra
-		// FIXME: uniqueness of records and table creation
-		CassandraJavaUtil.javaFunctions(records).writerBuilder(KEYSPACE, TABLE, CassandraJavaUtil.mapToRow(LogRecord.class)).saveToCassandra();
+		try {
+			CassandraConnector connector = CassandraConnector.apply(sparkContext.getConf());
+
+			Session session = connector.openSession();
+			session.execute("DROP KEYSPACE IF EXISTS " + KEYSPACE);
+			session.execute("CREATE KEYSPACE " + KEYSPACE + " WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1}");
+			session.execute("CREATE TABLE " + KEYSPACE + "." + TABLE + " (ip text, time int, url text, user text, PRIMARY KEY (ip, time))");
+			session.close();
+		} catch (Exception e) {
+			CommonDemo.fail(DEMO, "Exception on creating Cassandra tables\n" + e.getMessage());
+		}
+
+		try {
+			CassandraJavaUtil.javaFunctions(records).writerBuilder(KEYSPACE, TABLE, CassandraJavaUtil.mapToRow(LogRecord.class)).saveToCassandra();
+		} catch (Exception e) {
+			CommonDemo.fail(DEMO, "Exception on writing data to Cassandra\n" + e.getMessage());
+		}
 
 		// read log records from Cassandra and check
-		JavaRDD<LogRecord> read = CassandraJavaUtil.javaFunctions(sparkContext).cassandraTable(KEYSPACE, TABLE, CassandraJavaUtil.mapRowTo(LogRecord.class));
-		if (read.count() != text.size()) {
-			CommonDemo.fail(CommonDemo.root() + CASSANDRA + ACCESS_LOG, "Expected to read " + text.size() + " records but found " + read.count());
+		try {
+			JavaRDD<LogRecord> read = CassandraJavaUtil.javaFunctions(sparkContext).cassandraTable(KEYSPACE, TABLE, CassandraJavaUtil.mapRowTo(LogRecord.class));
+			if (read.count() != text.size()) {
+				CommonDemo.fail(CommonDemo.root() + DEMO, "Expected to read " + text.size() + " records but found " + read.count());
+			}
+		} catch (Exception e) {
+			CommonDemo.fail(DEMO, "Exception on reading from Cassandra\n" + e.getMessage());
 		}
-		CommonDemo.succeed(CommonDemo.root() + CASSANDRA + ACCESS_LOG);
+		CommonDemo.succeed(DEMO);
 	}
 
 }

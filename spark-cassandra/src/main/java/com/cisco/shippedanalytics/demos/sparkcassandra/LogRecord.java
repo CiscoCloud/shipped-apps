@@ -1,6 +1,8 @@
 package com.cisco.shippedanalytics.demos.sparkcassandra;
 
-import java.util.Date;
+import com.datastax.driver.mapping.annotations.PartitionKey;
+import com.datastax.driver.mapping.annotations.Table;
+
 
 /**
  * Access log record.
@@ -8,17 +10,20 @@ import java.util.Date;
  * @author Borys Omelayenko
  *
  */
+@Table(keyspace = "demos", name = "logRecord")
 public class LogRecord {
 
+	@PartitionKey(0)
 	private String ip;
 
 	private String user;
 
-	private Date time;
+	@PartitionKey(1)
+	private Integer time;
 
 	private String url;
 
-	public LogRecord(String ip, String user, Date time, String url) {
+	public LogRecord(String ip, String user, Integer time, String url) {
 		this.ip = ip;
 		this.user = user;
 		this.time = time;
@@ -41,11 +46,11 @@ public class LogRecord {
 		this.user = user;
 	}
 
-	public Date getTime() {
+	public Integer getTime() {
 		return time;
 	}
 
-	public void setTime(Date time) {
+	public void setTime(Integer time) {
 		this.time = time;
 	}
 
