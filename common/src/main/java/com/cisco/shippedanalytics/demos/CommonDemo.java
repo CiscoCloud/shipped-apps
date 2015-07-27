@@ -23,7 +23,7 @@ public class CommonDemo {
 	 * Demo HDFS root
 	 */
 	public static String root() {
-		return "/demos";
+		return "hdfs://localhost:54310/demos";
 	}
 
 	/**
@@ -62,7 +62,7 @@ public class CommonDemo {
 		FileSystem fs = FileSystem.get(new Configuration());
 		fs.mkdirs(new Path(root() + path));
 
-		FSDataOutputStream os = fs.create(new Path(root() + path + "/FAILUE"));
+		FSDataOutputStream os = fs.create(new Path(root() + path + "/FAILURE"));
 		IOUtils.write("FAILED on " + new Date() + " with message\n" + message, os);
 		os.close();
 
