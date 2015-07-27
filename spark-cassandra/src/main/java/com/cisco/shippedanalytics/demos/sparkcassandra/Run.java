@@ -35,20 +35,21 @@ public class Run {
 
 	private static final String ACCESS_LOG = "/access.log";
 
-	private static final String APP_NAME = "Shipped Analytics - Spark Demo";
+	private static final String APP_NAME = "Shipped Analytics - Spark-Cassandra Demo";
 
 	public static void main(String[] args) throws IOException, URISyntaxException {
 
-		if (args.length != 1) {
-			CommonDemo.fail(DEMO, "Expected a parameter - IP of a Cassandra node");
+		if (args.length != 2) {
+			CommonDemo.fail("", DEMO, "Expected two parameters - cassandra-ip hdfs-ip");
 		}
 		String cassandraHost = args[0];
+		String hdfs = args[1];
 
 		// copy log file to HDFS
 		List<String> text = IOUtils.readLines(new Run().getClass().getResourceAsStream(ACCESS_LOG));
-		FileSystem fs = CommonDemo.fs(DEMO);
+		FileSystem fs = CommonDemo.fs(hdfs, DEMO);
 
-		FSDataOutputStream os = fs.create(new Path(CommonDemo.root() + DEMO + ACCESS_LOG));
+		FSDataOutputStream os = fs.create(new Path(CommonDemo.root(hdfs) + DEMO + ACCESS_LOG));
 		IOUtils.writeLines(text, "\n", os);
 		os.close();
 
@@ -59,16 +60,23 @@ public class Run {
 		.set("spark.cassandra.connection.host", cassandraHost);
 
 		JavaSparkContext sparkContext = new JavaSparkContext(sparkConf);
-		JavaRDD<LogRecord> records = sparkContext.textFile(CommonDemo.root() + DEMO + ACCESS_LOG).map(new Function<String, LogRecord>() {
+		JavaRDD<LogRecord> records = null;
+		try {
+			records = sparkContext.textFile(CommonDemo.root(hdfs) + DEMO + ACCESS_LOG).map(new Function<String, LogRecord>() {
 
-			private static final long serialVersionUID = -4197368391364369559L;
+				private static final long serialVersionUID = -4197368391364369559L;
 
-			@Override
-			public LogRecord call(String line) throws Exception {
-				String[] fields = StringUtils.split(line, ' ');
-				return new LogRecord(fields[0], fields[1], Integer.parseInt(fields[2]), fields[3]);
-			}
-		});
+				@Override
+				public LogRecord call(String line) throws Exception {
+					String[] fields = StringUtils.split(line, ' ');
+					return new LogRecord(fields[0], fields[1], Integer.parseInt(fields[2]), fields[3]);
+				}
+			});
+		} catch (Exception e) {
+			CommonDemo.fail(hdfs, DEMO, "Exception while reading log data from " + (CommonDemo.root(hdfs) + DEMO + ACCESS_LOG) + "\n" + e.getMessage());
+		}
+
+		System.out.println("Phase 1");
 
 		// save log records to Cassandra
 		try {
@@ -80,25 +88,29 @@ public class Run {
 			session.execute("CREATE TABLE " + KEYSPACE + "." + TABLE + " (ip text, time int, url text, user text, PRIMARY KEY (ip, time))");
 			session.close();
 		} catch (Exception e) {
-			CommonDemo.fail(DEMO, "Exception on creating Cassandra tables\n" + e.getMessage());
+			CommonDemo.fail(hdfs, DEMO, "Exception while creating Cassandra tables\n" + e.getMessage());
 		}
 
+		System.out.println("Phase 2");
+
 		try {
-			CassandraJavaUtil.javaFunctions(records).writerBuilder(KEYSPACE, TABLE, CassandraJavaUtil.mapToRow(LogRecord.class)).saveToCassandra();
+			//CassandraJavaUtil.javaFunctions(records).writerBuilder(KEYSPACE, TABLE, CassandraJavaUtil.mapToRow(LogRecord.class)).saveToCassandra();
 		} catch (Exception e) {
-			CommonDemo.fail(DEMO, "Exception on writing data to Cassandra\n" + e.getMessage());
+			CommonDemo.fail(hdfs, DEMO, "Exception while writing data to Cassandra\n" + e.getMessage());
 		}
+
+		System.out.println("Phase 3");
 
 		// read log records from Cassandra and check
 		try {
 			JavaRDD<LogRecord> read = CassandraJavaUtil.javaFunctions(sparkContext).cassandraTable(KEYSPACE, TABLE, CassandraJavaUtil.mapRowTo(LogRecord.class));
 			if (read.count() != text.size()) {
-				CommonDemo.fail(CommonDemo.root() + DEMO, "Expected to read " + text.size() + " records but found " + read.count());
+				CommonDemo.fail(hdfs, CommonDemo.root(hdfs) + DEMO, "Expected to read " + text.size() + " records but found " + read.count());
 			}
 		} catch (Exception e) {
-			CommonDemo.fail(DEMO, "Exception on reading from Cassandra\n" + e.getMessage());
+			CommonDemo.fail(hdfs, DEMO, "Exception while reading data from Cassandra\n" + e.getMessage());
 		}
-		CommonDemo.succeed(DEMO);
+		CommonDemo.succeed(hdfs, DEMO);
 	}
 
 }

@@ -5,6 +5,7 @@ import java.net.URISyntaxException;
 import java.util.List;
 
 import org.apache.commons.io.IOUtils;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
@@ -25,26 +26,37 @@ public class Run {
 
 	public static void main(String[] args) throws IOException, URISyntaxException {
 
-		List<String> text = IOUtils.readLines(new Run().getClass().getResourceAsStream(SHAKESPEARE_TXT));
-		FileSystem fs = CommonDemo.fs(DEMO);
+		if (args.length != 1) {
+			System.err.println("Expected an argument - HDFS ip");
+		}
 
-		FSDataOutputStream os = fs.create(new Path(CommonDemo.root() + DEMO + SHAKESPEARE_TXT));
+		String hdfs = args[0];
+
+		System.out.println("Using HDFS " + hdfs);
+
+		Configuration conf = new Configuration();
+		System.out.println(conf.get("fs.default.name"));
+
+		List<String> text = IOUtils.readLines(new Run().getClass().getResourceAsStream(SHAKESPEARE_TXT));
+		FileSystem fs = CommonDemo.fs(hdfs, DEMO);
+
+		FSDataOutputStream os = fs.create(new Path(CommonDemo.root(hdfs) + DEMO + SHAKESPEARE_TXT));
 		IOUtils.writeLines(text, "\n", os);
 		os.close();
 
-		FSDataInputStream is = fs.open(new Path(CommonDemo.root() + DEMO + SHAKESPEARE_TXT));
+		FSDataInputStream is = fs.open(new Path(CommonDemo.root(hdfs) + DEMO + SHAKESPEARE_TXT));
 		List<String> read = IOUtils.readLines(is);
 		is.close();
 
 		if (text.size() != read.size()) {
-			CommonDemo.fail(DEMO, "Error: expected " + text.size() + " lines but read " + read.size());
+			CommonDemo.fail(hdfs, DEMO, "Error: expected " + text.size() + " lines but read " + read.size());
 		}
 		for (int i = 0; i < read.size(); i ++) {
 			if (!read.get(i).equals(text.get(i))) {
-				CommonDemo.fail(DEMO, "Error: expected '" + text.get(i) + "' but read '" + read.get(i) + "' on line " + i);
+				CommonDemo.fail(hdfs, DEMO, "Error: expected '" + text.get(i) + "' but read '" + read.get(i) + "' on line " + i);
 			}
 		}
-		CommonDemo.succeed(DEMO);
+		CommonDemo.succeed(hdfs, DEMO);
 	}
 
 }

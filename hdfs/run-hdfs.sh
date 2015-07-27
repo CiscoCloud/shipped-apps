@@ -1,2 +1,2 @@
 #/opt/mesosphere/packages/hadoop--a0b14ad939d0ed373688435552ff63f724608a78/bin/hadoop 
-hadoop jar target/hdfs-demo-with-dependencies.jar
+hadoop jar target/hdfs-demo-with-dependencies.jar hdfs://localhost:50070
