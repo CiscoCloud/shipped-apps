@@ -13,7 +13,12 @@ It feature the following demos (implemented as maven modules)
 
 # how to build
 
-Use Apache Maven, run command `mvn install` from the directory of this readme file.
+Use Apache Maven, run command `mvn clean install` from the directory of this readme file.
+
+# how to deploy and execute
+
+Deployment instructions vary per demo, refer to demo-specific instructions 
+
 
 
 

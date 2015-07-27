@@ -1,25 +1,23 @@
-# Cassandra Sample Reader/Writer App
+# how to run
 
-Get a directory with 
-```
-cassandra-demo-with-dependencies.jar
-run-cassandra.sh
-```
+* build it using `mvn clean install`, after the build is complete you only need file `target\cassandra-demo-with-dependencies.jar` that you can copy to the target system.
 
-From this directory run 
+* modify as needed and execute `sh run-cassandra.sh` 
 
-```
-sh run-cassandra.sh
-```
+# how to assess
 
-And wait for the word 'SUCCESS'.
+Give it a couple of minutes to run. You may monitor its progress in MESOS.
 
-You can also explore the Cassandra table 
-```
-demo.load_averages
-```
- 
-Built with [Scala](https://github.com/scala/scala) and [DataStax Cassandra driver ](https://github.com/datastax/java-driver).
+* check HDFS directory `hadoop dfs -ls /demos/cassandra`
 
-Reads */proc/loadavg* file and inserts load average data into Cassandra's *demo.load_averages* table.
+* It should contain file `SUCCESS` or `FAILURE` depending on the result.
+
+* `SUCCESS` indicates a successful completion of the demo
+
+* `FAILURE` describes the reason
+
+# additional info
+
+The demo creates the Cassandra table `demo.load_averages` that can be explored after the script completes.
+
 
