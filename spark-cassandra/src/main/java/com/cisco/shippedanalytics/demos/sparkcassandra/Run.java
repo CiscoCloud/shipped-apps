@@ -39,17 +39,13 @@ public class Run {
 
 	public static void main(String[] args) throws IOException, URISyntaxException {
 
-		if (args.length != 2) {
-			CommonDemo.fail("", DEMO, "Expected two parameters - cassandra-ip hdfs-ip");
-		}
 		String cassandraHost = args[0];
-		String hdfs = args[1];
 
 		// copy log file to HDFS
 		List<String> text = IOUtils.readLines(new Run().getClass().getResourceAsStream(ACCESS_LOG));
-		FileSystem fs = CommonDemo.fs(hdfs, DEMO);
+		FileSystem fs = CommonDemo.fs(DEMO);
 
-		FSDataOutputStream os = fs.create(new Path(CommonDemo.root(hdfs) + DEMO + ACCESS_LOG));
+		FSDataOutputStream os = fs.create(new Path(CommonDemo.root() + DEMO + ACCESS_LOG));
 		IOUtils.writeLines(text, "\n", os);
 		os.close();
 
@@ -62,7 +58,7 @@ public class Run {
 		JavaSparkContext sparkContext = new JavaSparkContext(sparkConf);
 		JavaRDD<LogRecord> records = null;
 		try {
-			records = sparkContext.textFile(CommonDemo.root(hdfs) + DEMO + ACCESS_LOG).map(new Function<String, LogRecord>() {
+			records = sparkContext.textFile(CommonDemo.root() + DEMO + ACCESS_LOG).map(new Function<String, LogRecord>() {
 
 				private static final long serialVersionUID = -4197368391364369559L;
 
@@ -73,7 +69,7 @@ public class Run {
 				}
 			});
 		} catch (Exception e) {
-			CommonDemo.fail(hdfs, DEMO, "Exception while reading log data from " + (CommonDemo.root(hdfs) + DEMO + ACCESS_LOG) + "\n" + e.getMessage());
+			CommonDemo.fail(DEMO, "Exception while reading log data from " + (CommonDemo.root() + DEMO + ACCESS_LOG) + "\n" + e.getMessage());
 		}
 
 		System.out.println("Phase 1");
@@ -88,7 +84,7 @@ public class Run {
 			session.execute("CREATE TABLE " + KEYSPACE + "." + TABLE + " (ip text, time int, url text, user text, PRIMARY KEY (ip, time))");
 			session.close();
 		} catch (Exception e) {
-			CommonDemo.fail(hdfs, DEMO, "Exception while creating Cassandra tables\n" + e.getMessage());
+			CommonDemo.fail(DEMO, "Exception while creating Cassandra tables\n" + e.getMessage());
 		}
 
 		System.out.println("Phase 2");
@@ -96,7 +92,7 @@ public class Run {
 		try {
 			CassandraJavaUtil.javaFunctions(records).writerBuilder(KEYSPACE, TABLE, CassandraJavaUtil.mapToRow(LogRecord.class)).saveToCassandra();
 		} catch (Exception e) {
-			CommonDemo.fail(hdfs, DEMO, "Exception while writing data to Cassandra\n" + e.getMessage());
+			CommonDemo.fail(DEMO, "Exception while writing data to Cassandra\n" + e.getMessage());
 		}
 
 		System.out.println("Phase 3");
@@ -105,12 +101,12 @@ public class Run {
 		try {
 			JavaRDD<LogRecord> read = CassandraJavaUtil.javaFunctions(sparkContext).cassandraTable(KEYSPACE, TABLE, CassandraJavaUtil.mapRowTo(LogRecord.class));
 			if (read.count() != text.size()) {
-				CommonDemo.fail(hdfs, CommonDemo.root(hdfs) + DEMO, "Expected to read " + text.size() + " records but found " + read.count());
+				CommonDemo.fail(CommonDemo.root() + DEMO, "Expected to read " + text.size() + " records but found " + read.count());
 			}
 		} catch (Exception e) {
-			CommonDemo.fail(hdfs, DEMO, "Exception while reading data from Cassandra\n" + e.getMessage());
+			CommonDemo.fail(DEMO, "Exception while reading data from Cassandra\n" + e.getMessage());
 		}
-		CommonDemo.succeed(hdfs, DEMO);
+		CommonDemo.succeed(DEMO);
 	}
 
 }

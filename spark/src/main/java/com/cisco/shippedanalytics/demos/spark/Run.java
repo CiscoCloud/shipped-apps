@@ -40,16 +40,8 @@ public class Run {
 
 	public static void main(String[] args) throws IOException, IllegalArgumentException, URISyntaxException {
 
-		if (args.length != 1) {
-			System.err.println("Expected an argument - HDFS ip");
-		}
-
-		String hdfs = args[0];
-
-		System.out.println("Using HDFS " + hdfs);
-
-		FileSystem fs = CommonDemo.fs(hdfs, DEMO);
-		fs.delete(new Path(CommonDemo.root(hdfs) + DEMO), true);
+		FileSystem fs = CommonDemo.fs(DEMO);
+		fs.delete(new Path(CommonDemo.root() + DEMO), true);
 
 		SparkConf sparkConf = new SparkConf().setAppName(APP_NAME);
 
@@ -101,22 +93,22 @@ public class Run {
 				}
 			});
 
-			FSDataOutputStream os = fs.create(new Path(CommonDemo.root(hdfs) + DEMO + SHAKESPEARE_TXT));
+			FSDataOutputStream os = fs.create(new Path(CommonDemo.root() + DEMO + SHAKESPEARE_TXT));
 			IOUtils.writeLines(wordLines.collect(), "\n", os);
 			os.close();
 
 		}
 
-		BufferedReader br = new BufferedReader(new InputStreamReader(fs.open(new Path(CommonDemo.root(hdfs) + DEMO + SHAKESPEARE_TXT))));
+		BufferedReader br = new BufferedReader(new InputStreamReader(fs.open(new Path(CommonDemo.root() + DEMO + SHAKESPEARE_TXT))));
 		for (String line : IOUtils.readLines(br)) {
 			if (line.contains("COUNTESS")) {
 				if (!line.contains("43")) {
-					CommonDemo.fail(hdfs, DEMO, "Expected 43 occurances of COUNTESS, but did not found in the following line: " + line);
+					CommonDemo.fail(DEMO, "Expected 43 occurances of COUNTESS, but did not found in the following line: " + line);
 				}
 			}
 		}
 
-		CommonDemo.succeed(hdfs, DEMO);
+		CommonDemo.succeed(DEMO);
 	}
 
 }
