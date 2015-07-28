@@ -94,7 +94,7 @@ public class Run {
 		System.out.println("Phase 2");
 
 		try {
-			//CassandraJavaUtil.javaFunctions(records).writerBuilder(KEYSPACE, TABLE, CassandraJavaUtil.mapToRow(LogRecord.class)).saveToCassandra();
+			CassandraJavaUtil.javaFunctions(records).writerBuilder(KEYSPACE, TABLE, CassandraJavaUtil.mapToRow(LogRecord.class)).saveToCassandra();
 		} catch (Exception e) {
 			CommonDemo.fail(hdfs, DEMO, "Exception while writing data to Cassandra\n" + e.getMessage());
 		}
